@@ -1,0 +1,29 @@
+﻿{
+  "format_version": 2,
+  "header": {
+    "name": "CanopyCraft - BP",
+    "description": "Behavior pack for CanopyCraft",
+    "uuid": "3db9c5f2-f852-4bd8-8bb6-6fc7c606f236",
+    "version": [0,1,0],
+    "min_engine_version": [1,21,0]
+  },
+  "modules": [
+    {
+      "type": "script",
+      "language": "javascript",
+      "entry": "scripts/main.js",
+      "uuid": "59f3bd28-693d-48a4-93a9-bf3cb6fca453",
+      "version": [0,1,0]
+    }
+  ],
+  "dependencies": [
+    { "uuid": "fa407167-bce5-4cf1-b9a3-044b7e01bca5", "version": [0,1,0] }
+
+    /* IMPORTANT:
+       Add proper @minecraft/* module dependencies with exact versions
+       using the Blockception VS Code extension once opened.
+       Example:
+       { "module_name": "@minecraft/server", "version": "1.12.0-beta" }
+    */
+  ]
+}

@@ -1,0 +1,13 @@
+﻿{
+  "compilerOptions": {
+    "target": "ES2021",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "outDir": "BP/scripts",
+    "rootDir": "src",
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["@minecraft/server", "@minecraft/server-ui", "@minecraft/server-gametest"]
+  },
+  "include": ["src/**/*.ts"]
+}
