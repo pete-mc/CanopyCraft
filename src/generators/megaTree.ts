@@ -129,6 +129,8 @@ export function generateMegaTree(
 
   const pending: { pos: Vector3; perm: BlockPermutation }[] = [];
   const logPositions: Vector3[] = [];
+  const innerPositions: Vector3[] = [];
+  const pendingMap = new Map<string, { pos: Vector3; perm: BlockPermutation }>();
 
   // Helper to test for protected blocks.
   const isBlocked = (pos: Vector3): boolean => {
@@ -137,33 +139,53 @@ export function generateMegaTree(
     return PROTECTED.has(block.typeId);
   };
 
-  // --- Trunk generation with varied taper
+  // --- Trunk generation with varied taper levels
   const topRadius = Math.max(1, Math.floor(trunkRadius * 0.7));
   const maxRadius = trunkRadius;
-  const taperRange = 5; // +/- variation for taper height
-  const taperOffsets = new Map<string, number>();
+  const maxLevels = Math.min(5, trunkRadius - topRadius + 1);
+  const levelCount = rng.int(2, maxLevels);
+  const baseTransitions: number[] = [];
+  for (let i = 1; i < levelCount; i++) {
+    baseTransitions.push(Math.round((trunkHeight * i) / levelCount));
+  }
+  const radii: number[] = [trunkRadius];
+  for (let i = 1; i < levelCount; i++) {
+    const remainingLevels = levelCount - i;
+    const remainingDiff = radii[i - 1] - topRadius;
+    const step = Math.ceil(remainingDiff / remainingLevels);
+    radii[i] = radii[i - 1] - step;
+  }
+  const taperOffsets = new Map<string, number[]>();
   for (let dx = -maxRadius; dx <= maxRadius; dx++) {
     for (let dz = -maxRadius; dz <= maxRadius; dz++) {
       if (dx * dx + dz * dz > maxRadius * maxRadius) continue;
-      const n = noise(baseX + dx * 3, baseY, baseZ + dz * 3);
-      taperOffsets.set(`${dx},${dz}`, Math.floor(n * taperRange * 2 - taperRange));
+      const offsets = baseTransitions.map((h, j) => {
+        const range = rng.int(3, 5);
+        const n = noise(baseX + dx * 3, h + j * 53, baseZ + dz * 3);
+        return h + Math.floor(n * range * 2 - range);
+      });
+      offsets.sort((a, b) => a - b);
+      taperOffsets.set(`${dx},${dz}`, offsets);
     }
   }
   for (let y = 0; y < trunkHeight; y++) {
     for (let dx = -maxRadius; dx <= maxRadius; dx++) {
       for (let dz = -maxRadius; dz <= maxRadius; dz++) {
         if (dx * dx + dz * dz > maxRadius * maxRadius) continue;
-        const offset = taperOffsets.get(`${dx},${dz}`) ?? 0;
-        const t = Math.min(1, Math.max(0, (y + offset) / trunkHeight));
-        const radius = Math.round(trunkRadius + (topRadius - trunkRadius) * t);
+        const transitions = taperOffsets.get(`${dx},${dz}`) ?? [];
+        let level = 0;
+        while (level < transitions.length && y >= transitions[level]) level++;
+        const radius = radii[level];
         if (dx * dx + dz * dz > radius * radius) continue;
         const world = { x: baseX + dx, y: baseY + y, z: baseZ + dz };
         if (isBlocked(world)) return; // Abort on obstruction
         const outer =
           dx * dx + dz * dz >= (radius - 1) * (radius - 1) || radius <= 1;
-        const perm = outer ? outerLog : innerLog;
-        pending.push({ pos: world, perm });
+        const entry = { pos: world, perm: outer ? outerLog : innerLog };
+        pending.push(entry);
+        pendingMap.set(key(world), entry);
         logPositions.push(world);
+        if (!outer) innerPositions.push(world);
       }
     }
   }
@@ -187,7 +209,9 @@ export function generateMegaTree(
       const pos = { x, y, z };
       const block = dimension.getBlock(pos);
       if (!block || PROTECTED.has(block.typeId)) continue;
-      pending.push({ pos, perm });
+      const entry = { pos, perm };
+      pending.push(entry);
+      pendingMap.set(key(pos), entry);
       logPositions.push(pos);
       if (s === 1) {
         const sidePos =
@@ -196,9 +220,33 @@ export function generateMegaTree(
             : { x: x + (rng.next() < 0.5 ? 1 : -1), y, z };
         const sideBlock = dimension.getBlock(sidePos);
         if (sideBlock && !PROTECTED.has(sideBlock.typeId)) {
-          pending.push({ pos: sidePos, perm });
+          const entry2 = { pos: sidePos, perm };
+          pending.push(entry2);
+          pendingMap.set(key(sidePos), entry2);
           logPositions.push(sidePos);
         }
+      }
+    }
+  }
+
+  // --- Convert exposed stripped logs to oak
+  const logSet = new Set(logPositions.map((p) => key(p)));
+  for (const pos of innerPositions) {
+    const entry = pendingMap.get(key(pos));
+    if (!entry) continue;
+    const dirs = [
+      [1, 0, 0],
+      [-1, 0, 0],
+      [0, 1, 0],
+      [0, -1, 0],
+      [0, 0, 1],
+      [0, 0, -1],
+    ];
+    for (const [dx, dy, dz] of dirs) {
+      const k = `${pos.x + dx},${pos.y + dy},${pos.z + dz}`;
+      if (!logSet.has(k)) {
+        entry.perm = outerLog;
+        break;
       }
     }
   }
@@ -223,16 +271,25 @@ export function generateMegaTree(
     for (let s = 0; s < length && y <= trunkTopY; s++, y++) {
       const perm = vinePermutation(dx, dz);
       const pos = { x, y, z };
-      const block = dimension.getBlock(pos);
-      if (block && block.typeId === "minecraft:air") {
-        pending.push({ pos, perm });
+      const behind =
+        Math.abs(dx) > Math.abs(dz)
+          ? { x: x - Math.sign(dx), y, z }
+          : { x, y, z: z - Math.sign(dz) };
+      if (logSet.has(key(behind))) {
+        const block = dimension.getBlock(pos);
+        if (block && block.typeId === "minecraft:air") {
+          pending.push({ pos, perm });
+        }
       }
       if (rng.next() < 0.2) {
         if (Math.abs(dx) > Math.abs(dz)) dz += rng.next() < 0.5 ? 1 : -1;
         else dx += rng.next() < 0.5 ? 1 : -1;
-        if (dx * dx + dz * dz > (trunkRadius + 2) * (trunkRadius + 2)) {
-          if (Math.abs(dx) > Math.abs(dz)) dz += dz > 0 ? -1 : 1;
-          else dx += dx > 0 ? -1 : 1;
+        if (Math.abs(dx) > Math.abs(dz)) {
+          dx = Math.sign(dx) * (trunkRadius + 1);
+          dz = Math.max(-trunkRadius, Math.min(trunkRadius, dz));
+        } else {
+          dz = Math.sign(dz) * (trunkRadius + 1);
+          dx = Math.max(-trunkRadius, Math.min(trunkRadius, dx));
         }
         x = baseX + dx;
         z = baseZ + dz;
