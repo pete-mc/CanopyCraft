@@ -1,5 +1,5 @@
 ﻿node_modules/
 .vscode/
-BP/scripts/**/*.js
-BP/scripts/**/*.map
+CanopyCraftBP/scripts/**/*.js
+CanopyCraftBP/scripts/**/*.map
 *.zip

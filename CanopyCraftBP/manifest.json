@@ -4,8 +4,8 @@
     "name": "CanopyCraft - BP",
     "description": "Behavior pack for CanopyCraft",
     "uuid": "3db9c5f2-f852-4bd8-8bb6-6fc7c606f236",
-    "version": [0,1,0],
-    "min_engine_version": [1,21,40]
+    "version": [1,0,0],
+    "min_engine_version": [1,21,0]
   },
   "modules": [
     {
@@ -13,11 +13,11 @@
       "language": "javascript",
       "entry": "scripts/main.js",
       "uuid": "59f3bd28-693d-48a4-93a9-bf3cb6fca453",
-      "version": [0,1,0]
+      "version": [1,0,0]
     }
   ],
   "dependencies": [
-    { "uuid": "fa407167-bce5-4cf1-b9a3-044b7e01bca5", "version": [0,1,0] },
+    { "uuid": "fa407167-bce5-4cf1-b9a3-044b7e01bca5", "version": [1,0,0] },
     { "module_name": "@minecraft/server", "version": "2.1.0" },
     { "module_name": "@minecraft/server-gametest", "version": "1.0.0-beta" },
     { "module_name": "@minecraft/server-ui", "version": "2.0.0" }

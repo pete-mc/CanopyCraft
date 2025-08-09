@@ -3,7 +3,7 @@
     "target": "ES2021",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    "outDir": "BP/scripts",
+    "outDir": "CanopyCraftBP/scripts",
     "rootDir": "src",
     "strict": true,
     "skipLibCheck": true,

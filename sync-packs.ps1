@@ -1,8 +1,8 @@
 $repoRoot = "C:\Users\peter\sources\repos\CanopyCraft"
 $devRoot = "$env:LOCALAPPDATA\Packages\Microsoft.MinecraftWindowsBeta_8wekyb3d8bbwe\LocalState\games\com.mojang"
 
-$bpSource = Join-Path $repoRoot "BP"
-$rpSource = Join-Path $repoRoot "RP"
+$bpSource = Join-Path $repoRoot "CanopyCraftBP"
+$rpSource = Join-Path $repoRoot "CanopyCraftRP"
 $bpDest = Join-Path $devRoot "development_behavior_packs\CanopyCraftBP"
 $rpDest = Join-Path $devRoot "development_resource_packs\CanopyCraftRP"
 

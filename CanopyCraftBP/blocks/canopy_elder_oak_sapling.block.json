@@ -1,0 +1,24 @@
+{
+  "format_version": "1.20.41",
+  "minecraft:block": {
+    "description": {
+      "identifier": "canopy:elder_oak_sapling"
+    },
+    "components": {
+        "minecraft:material_instances": {
+          "*": {
+            "texture": "canopy.elder_oak_sapling",
+            "render_method": "alpha_test"
+          }
+        },
+        "minecraft:geometry": "minecraft:geometry.cross",
+        "minecraft:collision_box": false,
+        "minecraft:selection_box": {
+            "origin": [-6, 0, -6],
+            "size": [12, 12, 12]
+        },
+        "minecraft:tick": { "interval_range": [120, 240], "looping": true },
+        "minecraft:custom_components": [ "canopy:elder_sapling_growth" ]      
+    }
+  }
+}
