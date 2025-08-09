@@ -1,5 +1,5 @@
 {
-  "format_version": "1.20.0",
+  "format_version": "1.21.0",
   "minecraft:block": {
     "description": {
       "identifier": "canopy:elder_oak_sapling",
@@ -22,7 +22,9 @@
               "minecraft:grass_block",
               "minecraft:podzol",
               "minecraft:farmland",
-              "minecraft:coarse_dirt"
+              "minecraft:coarse_dirt",
+              "minecraft:short_grass",
+              "minecraft:tall_grass"
             ]
           }
         ]

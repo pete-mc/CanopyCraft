@@ -255,7 +255,6 @@ export function generateMegaTree(
       queue.push(p);
     }
   }
-  const maxLogY = maxY;
   minX -= 6;
   maxX += 6;
   minY -= 6;
