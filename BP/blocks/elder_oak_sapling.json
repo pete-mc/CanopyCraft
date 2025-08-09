@@ -1,0 +1,54 @@
+{
+  "format_version": "1.20.0",
+  "minecraft:block": {
+    "description": {
+      "identifier": "canopy:elder_oak_sapling",
+      "register_to_creative_menu": true
+    },
+    "components": {
+      "minecraft:destroy_time": 0,
+      "minecraft:material_instances": {
+        "*": {
+          "texture": "oak_sapling",
+          "render_method": "alpha_test"
+        }
+      },
+      "minecraft:placement_filter": {
+        "conditions": [
+          {
+            "allowed_faces": ["up"],
+            "block_filter": [
+              "minecraft:dirt",
+              "minecraft:grass",
+              "minecraft:podzol",
+              "minecraft:farmland"
+            ]
+          }
+        ]
+      },
+      "minecraft:collision_box": {
+        "size": [0, 0, 0],
+        "origin": [0, 0, 0]
+      },
+      "minecraft:selection_box": {
+        "size": [1, 1, 1],
+        "origin": [0, 0, 0]
+      },
+      "minecraft:random_ticking": true,
+      "minecraft:loot": "loot_tables/blocks/elder_oak_sapling.json",
+      "minecraft:on_random_tick": {
+        "event": "canopy:grow"
+      },
+      "minecraft:on_interact": {
+        "event": "canopy:grow"
+      }
+    },
+    "events": {
+      "canopy:grow": {
+        "run_command": {
+          "command": ["scriptevent canopy:elder_sapling_grow"]
+        }
+      }
+    }
+  }
+}
