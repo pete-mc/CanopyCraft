@@ -1,0 +1,16 @@
+{
+  "format_version": "1.20.0",
+  "minecraft:item": {
+    "description": {
+      "identifier": "canopy:elder_oak_sapling",
+      "category": "nature"
+    },
+    "components": {
+      "minecraft:icon": "canopy.elder_oak_sapling",
+      "minecraft:block_placer": {
+        "block": "canopy:elder_oak_sapling"
+      },
+      "minecraft:use_animation": "place"
+    }
+  }
+}
