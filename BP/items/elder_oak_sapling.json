@@ -7,9 +7,7 @@
     },
     "components": {
       "minecraft:icon": "canopy.elder_oak_sapling",
-      "minecraft:block_placer": {
-        "block": "canopy:elder_oak_sapling"
-      },
+      "minecraft:block": "canopy:elder_oak_sapling",
       "minecraft:use_animation": "place"
     }
   }

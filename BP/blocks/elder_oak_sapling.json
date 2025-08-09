@@ -19,9 +19,10 @@
             "allowed_faces": ["up"],
             "block_filter": [
               "minecraft:dirt",
-              "minecraft:grass",
+              "minecraft:grass_block",
               "minecraft:podzol",
-              "minecraft:farmland"
+              "minecraft:farmland",
+              "minecraft:coarse_dirt"
             ]
           }
         ]
