@@ -23,9 +23,9 @@ function getSelectedItem(player: Player): ItemStack | undefined {
         // trunkRadius: 6,
         // trunkHeight: 32,
         maxBlocksPerTick: 500,
-        onComplete: ({ seed, placed }) => {
+        onComplete: () => {
             // lightweight telemetry; remove if noisy
-            // console.warn(`[CanopyCraft] MegaTree complete seed=${seed} placed=${placed}`);
+            // console.warn(`[CanopyCraft] MegaTree complete`);
         },
     });
   }
