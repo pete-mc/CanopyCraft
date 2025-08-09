@@ -129,6 +129,8 @@ export function generateMegaTree(
 
   const pending: { pos: Vector3; perm: BlockPermutation }[] = [];
   const logPositions: Vector3[] = [];
+  const innerPositions: Vector3[] = [];
+  const pendingMap = new Map<string, { pos: Vector3; perm: BlockPermutation }>();
 
   // Helper to test for protected blocks.
   const isBlocked = (pos: Vector3): boolean => {
@@ -137,21 +139,160 @@ export function generateMegaTree(
     return PROTECTED.has(block.typeId);
   };
 
-  // --- Trunk generation with taper
+  // --- Trunk generation with varied taper levels
   const topRadius = Math.max(1, Math.floor(trunkRadius * 0.7));
+  const maxRadius = trunkRadius;
+  const maxLevels = Math.min(5, trunkRadius - topRadius + 1);
+  const levelCount = rng.int(2, maxLevels);
+  const baseTransitions: number[] = [];
+  for (let i = 1; i < levelCount; i++) {
+    baseTransitions.push(Math.round((trunkHeight * i) / levelCount));
+  }
+  const radii: number[] = [trunkRadius];
+  for (let i = 1; i < levelCount; i++) {
+    const remainingLevels = levelCount - i;
+    const remainingDiff = radii[i - 1] - topRadius;
+    const step = Math.ceil(remainingDiff / remainingLevels);
+    radii[i] = radii[i - 1] - step;
+  }
+  const taperOffsets = new Map<string, number[]>();
+  for (let dx = -maxRadius; dx <= maxRadius; dx++) {
+    for (let dz = -maxRadius; dz <= maxRadius; dz++) {
+      if (dx * dx + dz * dz > maxRadius * maxRadius) continue;
+      const offsets = baseTransitions.map((h, j) => {
+        const range = rng.int(3, 5);
+        const n = noise(baseX + dx * 3, h + j * 53, baseZ + dz * 3);
+        return h + Math.floor(n * range * 2 - range);
+      });
+      offsets.sort((a, b) => a - b);
+      taperOffsets.set(`${dx},${dz}`, offsets);
+    }
+  }
   for (let y = 0; y < trunkHeight; y++) {
-    const t = y / trunkHeight;
-    const radius = Math.round(trunkRadius + (topRadius - trunkRadius) * t);
-    for (let dx = -radius; dx <= radius; dx++) {
-      for (let dz = -radius; dz <= radius; dz++) {
+    for (let dx = -maxRadius; dx <= maxRadius; dx++) {
+      for (let dz = -maxRadius; dz <= maxRadius; dz++) {
+        if (dx * dx + dz * dz > maxRadius * maxRadius) continue;
+        const transitions = taperOffsets.get(`${dx},${dz}`) ?? [];
+        let level = 0;
+        while (level < transitions.length && y >= transitions[level]) level++;
+        const radius = radii[level];
         if (dx * dx + dz * dz > radius * radius) continue;
         const world = { x: baseX + dx, y: baseY + y, z: baseZ + dz };
         if (isBlocked(world)) return; // Abort on obstruction
         const outer =
           dx * dx + dz * dz >= (radius - 1) * (radius - 1) || radius <= 1;
-        const perm = outer ? outerLog : innerLog;
-        pending.push({ pos: world, perm });
+        const entry = { pos: world, perm: outer ? outerLog : innerLog };
+        pending.push(entry);
+        pendingMap.set(key(world), entry);
         logPositions.push(world);
+        if (!outer) innerPositions.push(world);
+      }
+    }
+  }
+
+  // --- Root flares
+  const rootDirs = [
+    { dx: 1, dz: 0, axis: "x" as const },
+    { dx: -1, dz: 0, axis: "x" as const },
+    { dx: 0, dz: 1, axis: "z" as const },
+    { dx: 0, dz: -1, axis: "z" as const },
+  ];
+  const rootCount = rng.int(3, 5);
+  for (let i = 0; i < rootCount; i++) {
+    const dir = rootDirs[rng.int(0, rootDirs.length - 1)];
+    const length = rng.int(2, 4);
+    for (let s = 1; s <= length; s++) {
+      const x = baseX + dir.dx * (trunkRadius + s);
+      const z = baseZ + dir.dz * (trunkRadius + s);
+      const y = baseY + (s > 2 ? -1 : 0);
+      const perm = BlockPermutation.resolve("minecraft:oak_log", { pillar_axis: dir.axis });
+      const pos = { x, y, z };
+      const block = dimension.getBlock(pos);
+      if (!block || PROTECTED.has(block.typeId)) continue;
+      const entry = { pos, perm };
+      pending.push(entry);
+      pendingMap.set(key(pos), entry);
+      logPositions.push(pos);
+      if (s === 1) {
+        const sidePos =
+          dir.axis === "x"
+            ? { x, y, z: z + (rng.next() < 0.5 ? 1 : -1) }
+            : { x: x + (rng.next() < 0.5 ? 1 : -1), y, z };
+        const sideBlock = dimension.getBlock(sidePos);
+        if (sideBlock && !PROTECTED.has(sideBlock.typeId)) {
+          const entry2 = { pos: sidePos, perm };
+          pending.push(entry2);
+          pendingMap.set(key(sidePos), entry2);
+          logPositions.push(sidePos);
+        }
+      }
+    }
+  }
+
+  // --- Convert exposed stripped logs to oak
+  const logSet = new Set(logPositions.map((p) => key(p)));
+  for (const pos of innerPositions) {
+    const entry = pendingMap.get(key(pos));
+    if (!entry) continue;
+    const dirs = [
+      [1, 0, 0],
+      [-1, 0, 0],
+      [0, 1, 0],
+      [0, -1, 0],
+      [0, 0, 1],
+      [0, 0, -1],
+    ];
+    for (const [dx, dy, dz] of dirs) {
+      const k = `${pos.x + dx},${pos.y + dy},${pos.z + dz}`;
+      if (!logSet.has(k)) {
+        entry.perm = outerLog;
+        break;
+      }
+    }
+  }
+
+  const vinePermutation = (dx: number, dz: number): BlockPermutation => {
+    let bits = 0;
+    if (Math.abs(dx) > Math.abs(dz)) bits = dx > 0 ? 2 : 8;
+    else bits = dz > 0 ? 4 : 1;
+    return BlockPermutation.resolve("minecraft:vine", { vine_direction_bits: bits });
+  };
+
+  // --- Vines climbing the trunk
+  const vineStrips = rng.int(3, 6);
+  for (let i = 0; i < vineStrips; i++) {
+    const angle = rng.range(0, Math.PI * 2);
+    let dx = Math.round(Math.cos(angle) * (trunkRadius + 1));
+    let dz = Math.round(Math.sin(angle) * (trunkRadius + 1));
+    let x = baseX + dx;
+    let z = baseZ + dz;
+    let y = baseY + rng.int(0, Math.floor(trunkHeight * 0.3));
+    const length = rng.int(Math.floor(trunkHeight * 0.5), trunkHeight);
+    for (let s = 0; s < length && y <= trunkTopY; s++, y++) {
+      const perm = vinePermutation(dx, dz);
+      const pos = { x, y, z };
+      const behind =
+        Math.abs(dx) > Math.abs(dz)
+          ? { x: x - Math.sign(dx), y, z }
+          : { x, y, z: z - Math.sign(dz) };
+      if (logSet.has(key(behind))) {
+        const block = dimension.getBlock(pos);
+        if (block && block.typeId === "minecraft:air") {
+          pending.push({ pos, perm });
+        }
+      }
+      if (rng.next() < 0.2) {
+        if (Math.abs(dx) > Math.abs(dz)) dz += rng.next() < 0.5 ? 1 : -1;
+        else dx += rng.next() < 0.5 ? 1 : -1;
+        if (Math.abs(dx) > Math.abs(dz)) {
+          dx = Math.sign(dx) * (trunkRadius + 1);
+          dz = Math.max(-trunkRadius, Math.min(trunkRadius, dz));
+        } else {
+          dz = Math.sign(dz) * (trunkRadius + 1);
+          dx = Math.max(-trunkRadius, Math.min(trunkRadius, dx));
+        }
+        x = baseX + dx;
+        z = baseZ + dz;
       }
     }
   }
