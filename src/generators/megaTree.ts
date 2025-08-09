@@ -139,11 +139,23 @@ export function generateMegaTree(
 
   // --- Trunk generation with taper
   const topRadius = Math.max(1, Math.floor(trunkRadius * 0.7));
+  const taperSegs = Math.max(8, trunkRadius * 2);
+  const taperOffsets: number[] = [];
+  for (let i = 0; i < taperSegs; i++) taperOffsets.push(rng.int(-4, 4));
+  const taperOffsetFor = (dx: number, dz: number): number => {
+    const angle = Math.atan2(dz, dx);
+    const idx = ((angle + Math.PI) / (Math.PI * 2)) * taperSegs;
+    const i0 = Math.floor(idx) % taperSegs;
+    const i1 = (i0 + 1) % taperSegs;
+    const f = idx - i0;
+    return taperOffsets[i0] * (1 - f) + taperOffsets[i1] * f;
+  };
   for (let y = 0; y < trunkHeight; y++) {
-    const t = y / trunkHeight;
-    const radius = Math.round(trunkRadius + (topRadius - trunkRadius) * t);
-    for (let dx = -radius; dx <= radius; dx++) {
-      for (let dz = -radius; dz <= radius; dz++) {
+    for (let dx = -trunkRadius; dx <= trunkRadius; dx++) {
+      for (let dz = -trunkRadius; dz <= trunkRadius; dz++) {
+        const offset = taperOffsetFor(dx, dz);
+        const t = Math.min(1, Math.max(0, (y + offset) / trunkHeight));
+        const radius = Math.round(trunkRadius + (topRadius - trunkRadius) * t);
         if (dx * dx + dz * dz > radius * radius) continue;
         const world = { x: baseX + dx, y: baseY + y, z: baseZ + dz };
         if (isBlocked(world)) return; // Abort on obstruction
@@ -153,6 +165,65 @@ export function generateMegaTree(
         pending.push({ pos: world, perm });
         logPositions.push(world);
       }
+    }
+  }
+
+  // --- Root system at base
+  const rootCount = rng.int(3, 5);
+  for (let r = 0; r < rootCount; r++) {
+    const angle = rng.range(0, Math.PI * 2);
+    const dirX = Math.cos(angle);
+    const dirZ = Math.sin(angle);
+    const length = rng.int(2, 4);
+    for (let s = 0; s < length; s++) {
+      const rx = baseX + Math.round(dirX * (trunkRadius + s));
+      const rz = baseZ + Math.round(dirZ * (trunkRadius + s));
+      const ry = baseY + (s === 0 ? 1 : 0);
+      const rad = Math.max(1, Math.round(2 - (s / length) * 1.5));
+      for (let dx = -rad; dx <= rad; dx++) {
+        for (let dz = -rad; dz <= rad; dz++) {
+          if (dx * dx + dz * dz > rad * rad) continue;
+          const pos = { x: rx + dx, y: ry, z: rz + dz };
+          if (isBlocked(pos)) continue;
+          pending.push({ pos, perm: outerLog });
+        }
+      }
+    }
+  }
+
+  // --- Vine growth on trunk
+  const vineDirs = [
+    { dx: 1, dz: 0, bit: 2 },
+    { dx: -1, dz: 0, bit: 1 },
+    { dx: 0, dz: 1, bit: 4 },
+    { dx: 0, dz: -1, bit: 8 },
+  ];
+  const vineCount = rng.int(2, 4);
+  for (let i = 0; i < vineCount; i++) {
+    const dir = vineDirs[rng.int(0, vineDirs.length - 1)];
+    let offset = rng.int(-trunkRadius + 1, trunkRadius - 1);
+    const startY = baseY + rng.int(1, 3);
+    const endY = baseY + trunkHeight - rng.int(4, 8);
+    for (let y = startY; y <= endY; y++) {
+      if (rng.next() < 0.15) {
+        const d = rng.next() < 0.5 ? -1 : 1;
+        offset = Math.max(-trunkRadius + 1, Math.min(trunkRadius - 1, offset + d));
+      }
+      const trunkX = dir.dx !== 0 ? baseX + dir.dx * (trunkRadius - 1) : baseX + offset;
+      const trunkZ = dir.dz !== 0 ? baseZ + dir.dz * (trunkRadius - 1) : baseZ + offset;
+      const relX = trunkX - baseX;
+      const relZ = trunkZ - baseZ;
+      const tOff = taperOffsetFor(relX, relZ);
+      const localY = y - baseY;
+      const t = Math.min(1, Math.max(0, (localY + tOff) / trunkHeight));
+      const r = trunkRadius + (topRadius - trunkRadius) * t;
+      if (relX * relX + relZ * relZ > r * r) break;
+      const vinePos = { x: trunkX + dir.dx, y, z: trunkZ + dir.dz };
+      if (isBlocked(vinePos)) continue;
+      const perm = BlockPermutation.resolve("minecraft:vine", {
+        vine_direction_bits: dir.bit,
+      });
+      pending.push({ pos: vinePos, perm });
     }
   }
 
