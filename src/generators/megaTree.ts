@@ -114,6 +114,7 @@ export function generateMegaTree(
   const baseX = Math.floor(origin.x);
   const baseY = Math.floor(origin.y);
   const baseZ = Math.floor(origin.z);
+  const trunkTopY = baseY + trunkHeight - 1;
 
   // Resolve permutations
   const outerLog = BlockPermutation.resolve("minecraft:oak_log", {
@@ -321,14 +322,16 @@ export function generateMegaTree(
   }
 
   // --- Final canopy sealing pass
-  const canopyStartY = maxLogY - 2;
+  const canopyStartY = trunkTopY - 2;
   for (const log of logPositions) {
     if (log.y < canopyStartY) continue;
     const above = { x: log.x, y: log.y + 1, z: log.z };
+    const blockAbove = dimension.getBlock(above);
+    if (!blockAbove || blockAbove.typeId !== "minecraft:air") continue;
     const aboveKey = key(above);
     const aboveDist = dist.get(aboveKey);
-    if (aboveDist === undefined || aboveDist > 6 || aboveDist === 0) continue;
-    if (!placedLeaves.has(aboveKey) && !isBlocked(above)) {
+    if (aboveDist === undefined || aboveDist > 6) continue;
+    if (!placedLeaves.has(aboveKey)) {
       placedLeaves.add(aboveKey);
       pending.push({ pos: above, perm: leafPerm });
     }
