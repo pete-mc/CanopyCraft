@@ -254,6 +254,7 @@ export function generateMegaTree(
       queue.push(p);
     }
   }
+  const maxLogY = maxY;
   minX -= 6;
   maxX += 6;
   minY -= 6;
@@ -314,6 +315,34 @@ export function generateMegaTree(
             placedLeaves.add(k);
             pending.push({ pos, perm: leafPerm });
           }
+        }
+      }
+    }
+  }
+
+  // --- Final canopy sealing pass
+  const canopyStartY = maxLogY - 2;
+  for (const log of logPositions) {
+    if (log.y < canopyStartY) continue;
+    const above = { x: log.x, y: log.y + 1, z: log.z };
+    const aboveKey = key(above);
+    const aboveDist = dist.get(aboveKey);
+    if (aboveDist === undefined || aboveDist > 6 || aboveDist === 0) continue;
+    if (!placedLeaves.has(aboveKey) && !isBlocked(above)) {
+      placedLeaves.add(aboveKey);
+      pending.push({ pos: above, perm: leafPerm });
+    }
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dz = -1; dz <= 1; dz++) {
+          const pos = { x: above.x + dx, y: above.y + dy, z: above.z + dz };
+          const k = key(pos);
+          const dd = dist.get(k);
+          if (dd === undefined || dd > 6 || dd === 0) continue;
+          if (placedLeaves.has(k)) continue;
+          if (isBlocked(pos)) continue;
+          placedLeaves.add(k);
+          pending.push({ pos, perm: leafPerm });
         }
       }
     }
