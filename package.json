@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json && powershell -ExecutionPolicy Bypass -File ./sync-packs.ps1",
+    "build": "tsc -p tsconfig.json",
+    "buildlocal": "tsc -p tsconfig.json && powershell -ExecutionPolicy Bypass -File ./sync-packs.ps1",
     "watch": "tsc -w -p tsconfig.json",
     "format": "prettier -w .",
     "lint": "eslint \"src/**/*.{ts,tsx}\""
