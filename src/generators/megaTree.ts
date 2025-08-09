@@ -137,21 +137,157 @@ export function generateMegaTree(
     return PROTECTED.has(block.typeId);
   };
 
-  // --- Trunk generation with taper
+  // --- Trunk generation with varied taper
   const topRadius = Math.max(1, Math.floor(trunkRadius * 0.7));
+
+  // Low frequency angular offsets to vary taper height around the circumference.
+  const sectors = 12;
+  const taperOffsets = new Array(sectors)
+    .fill(0)
+    .map(() => rng.int(-3, 3));
+  const offsetFor = (angle: number): number => {
+    const a = ((angle + Math.PI) / (Math.PI * 2)) * sectors;
+    const i0 = Math.floor(a);
+    const frac = a - i0;
+    const o0 = taperOffsets[(i0 + sectors) % sectors];
+    const o1 = taperOffsets[(i0 + 1) % sectors];
+    return o0 * (1 - frac) + o1 * frac;
+  };
+
+  const outerSet = new Set<string>();
+  const outerBase: { x: number; z: number }[] = [];
+
   for (let y = 0; y < trunkHeight; y++) {
-    const t = y / trunkHeight;
-    const radius = Math.round(trunkRadius + (topRadius - trunkRadius) * t);
-    for (let dx = -radius; dx <= radius; dx++) {
-      for (let dz = -radius; dz <= radius; dz++) {
-        if (dx * dx + dz * dz > radius * radius) continue;
+    for (let dx = -trunkRadius; dx <= trunkRadius; dx++) {
+      for (let dz = -trunkRadius; dz <= trunkRadius; dz++) {
+        const distSq = dx * dx + dz * dz;
+        if (distSq > trunkRadius * trunkRadius) continue;
+        const angle = Math.atan2(dz, dx);
+        const t = Math.max(
+          0,
+          Math.min(1, (y + offsetFor(angle)) / trunkHeight),
+        );
+        const radius = Math.max(
+          1,
+          Math.round(trunkRadius + (topRadius - trunkRadius) * t),
+        );
+        if (distSq > radius * radius) continue;
         const world = { x: baseX + dx, y: baseY + y, z: baseZ + dz };
         if (isBlocked(world)) return; // Abort on obstruction
-        const outer =
-          dx * dx + dz * dz >= (radius - 1) * (radius - 1) || radius <= 1;
+        const outer = distSq >= (radius - 1) * (radius - 1) || radius <= 1;
         const perm = outer ? outerLog : innerLog;
         pending.push({ pos: world, perm });
         logPositions.push(world);
+        if (outer) {
+          outerSet.add(key(world));
+          if (y === 0) outerBase.push({ x: world.x, z: world.z });
+        }
+      }
+    }
+  }
+
+  // --- Ground roots
+  const rootStarts = outerBase.slice();
+  for (let i = rootStarts.length - 1; i > 0; i--) {
+    const j = rng.int(0, i);
+    [rootStarts[i], rootStarts[j]] = [rootStarts[j], rootStarts[i]];
+  }
+  const rootCount = Math.min(rootStarts.length, rng.int(3, 6));
+  for (let r = 0; r < rootCount; r++) {
+    const start = rootStarts[r];
+    let dirX = start.x > baseX ? 1 : start.x < baseX ? -1 : 0;
+    let dirZ = start.z > baseZ ? 1 : start.z < baseZ ? -1 : 0;
+    if (dirX !== 0 && dirZ !== 0) {
+      if (Math.abs(start.x - baseX) > Math.abs(start.z - baseZ)) dirZ = 0;
+      else dirX = 0;
+    }
+    const length = rng.int(2, 4);
+    const axis = dirX !== 0 ? "x" : "z";
+    for (let s = 1; s <= length; s++) {
+      const pos = {
+        x: start.x + dirX * s,
+        y: baseY + (s === length ? -1 : 0),
+        z: start.z + dirZ * s,
+      };
+      if (isBlocked(pos)) break;
+      const perm = BlockPermutation.resolve("minecraft:oak_log", {
+        pillar_axis: axis,
+      });
+      pending.push({ pos, perm });
+      logPositions.push(pos);
+      if (s === 1) {
+        const perp = dirX !== 0 ? { x: 0, z: 1 } : { x: 1, z: 0 };
+        for (const side of [1, -1]) {
+          const flare = {
+            x: pos.x + perp.x * side,
+            y: pos.y,
+            z: pos.z + perp.z * side,
+          };
+          if (!isBlocked(flare)) {
+            pending.push({ pos: flare, perm });
+            logPositions.push(flare);
+          }
+        }
+      }
+    }
+  }
+
+  // --- Vines
+  const vineStarts = outerBase.slice();
+  for (let i = vineStarts.length - 1; i > 0; i--) {
+    const j = rng.int(0, i);
+    [vineStarts[i], vineStarts[j]] = [vineStarts[j], vineStarts[i]];
+  }
+  const vineCount = Math.min(vineStarts.length, rng.int(3, 5));
+  const vineOrientation = (dx: number, dz: number): number => {
+    if (dx === 1) return 2; // west
+    if (dx === -1) return 8; // east
+    if (dz === 1) return 4; // north
+    return 1; // south
+  };
+  for (let v = 0; v < vineCount; v++) {
+    const start = vineStarts[v];
+    let tx = start.x;
+    let tz = start.z;
+    let dirX = start.x > baseX ? 1 : start.x < baseX ? -1 : 0;
+    let dirZ = start.z > baseZ ? 1 : start.z < baseZ ? -1 : 0;
+    if (dirX !== 0 && dirZ !== 0) {
+      if (Math.abs(start.x - baseX) > Math.abs(start.z - baseZ)) dirZ = 0;
+      else dirX = 0;
+    }
+    let orientation = vineOrientation(dirX, dirZ);
+    const maxLen = rng.int(Math.floor(trunkHeight * 0.6), trunkHeight - 2);
+    for (let h = 0; h < maxLen; h++) {
+      const ty = baseY + h;
+      if (!outerSet.has(key({ x: tx, y: ty, z: tz }))) break;
+      const vinePos = { x: tx + dirX, y: ty, z: tz + dirZ };
+      const block = dimension.getBlock(vinePos);
+      if (block && block.typeId === "minecraft:air") {
+        const perm = BlockPermutation.resolve("minecraft:vine", {
+          vine_direction_bits: orientation,
+        });
+        pending.push({ pos: vinePos, perm });
+      }
+      if (rng.next() < 0.2) {
+        // small horizontal deviation
+        let ndx = 0,
+          ndz = 0;
+        if (dirX !== 0) {
+          ndx = 0;
+          ndz = rng.next() < 0.5 ? 1 : -1;
+        } else {
+          ndx = rng.next() < 0.5 ? 1 : -1;
+          ndz = 0;
+        }
+        const ntx = tx + ndx;
+        const ntz = tz + ndz;
+        if (outerSet.has(key({ x: ntx, y: ty, z: ntz }))) {
+          tx = ntx;
+          tz = ntz;
+          dirX = ndx;
+          dirZ = ndz;
+          orientation = vineOrientation(dirX, dirZ);
+        }
       }
     }
   }
