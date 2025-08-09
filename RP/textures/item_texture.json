@@ -1,0 +1,9 @@
+{
+  "resource_pack_name": "canopycraft_rp",
+  "texture_name": "atlas.items",
+  "texture_data": {
+    "canopy.elder_oak_sapling": {
+      "textures": ["textures/blocks/oak_sapling"]
+    }
+  }
+}

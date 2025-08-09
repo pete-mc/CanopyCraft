@@ -1,0 +1,11 @@
+{
+  "resource_pack_name": "canopycraft_rp",
+  "texture_name": "atlas.terrain",
+  "padding": 8,
+  "num_mip_levels": 4,
+  "texture_data": {
+    "canopy.elder_oak_sapling": {
+      "textures": ["textures/blocks/oak_sapling"]
+    }
+  }
+}

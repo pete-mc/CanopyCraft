@@ -1,0 +1,11 @@
+{
+  "format_version": "1.20.0",
+  "pools": [
+    {
+      "rolls": 1,
+      "entries": [
+        { "type": "item", "name": "canopy:elder_oak_sapling" }
+      ]
+    }
+  ]
+}
