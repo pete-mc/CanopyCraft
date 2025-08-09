@@ -6,11 +6,14 @@
 
 ---
 
-## Features (Planned)
+## Features
 
 ### MVP
 - **Fused Sapling**: Crafted from multiple vanilla saplings.
-- **Megatree Generator**: Large trunk, dense canopy, optional hollow core.
+  ![](./Screenshots/Screenshot2.png)
+- **Megatree Generator**: Large trunk & dense canopy
+![](./Screenshots/Screenshot1.png)
+
 - **GameTest Integration**: Ensures correct size, footprint, and no damage to protected blocks.
 
 ### Future
