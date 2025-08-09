@@ -137,13 +137,25 @@ export function generateMegaTree(
     return PROTECTED.has(block.typeId);
   };
 
-  // --- Trunk generation with taper
+  // --- Trunk generation with varied taper
   const topRadius = Math.max(1, Math.floor(trunkRadius * 0.7));
+  const maxRadius = trunkRadius;
+  const taperRange = 5; // +/- variation for taper height
+  const taperOffsets = new Map<string, number>();
+  for (let dx = -maxRadius; dx <= maxRadius; dx++) {
+    for (let dz = -maxRadius; dz <= maxRadius; dz++) {
+      if (dx * dx + dz * dz > maxRadius * maxRadius) continue;
+      const n = noise(baseX + dx * 3, baseY, baseZ + dz * 3);
+      taperOffsets.set(`${dx},${dz}`, Math.floor(n * taperRange * 2 - taperRange));
+    }
+  }
   for (let y = 0; y < trunkHeight; y++) {
-    const t = y / trunkHeight;
-    const radius = Math.round(trunkRadius + (topRadius - trunkRadius) * t);
-    for (let dx = -radius; dx <= radius; dx++) {
-      for (let dz = -radius; dz <= radius; dz++) {
+    for (let dx = -maxRadius; dx <= maxRadius; dx++) {
+      for (let dz = -maxRadius; dz <= maxRadius; dz++) {
+        if (dx * dx + dz * dz > maxRadius * maxRadius) continue;
+        const offset = taperOffsets.get(`${dx},${dz}`) ?? 0;
+        const t = Math.min(1, Math.max(0, (y + offset) / trunkHeight));
+        const radius = Math.round(trunkRadius + (topRadius - trunkRadius) * t);
         if (dx * dx + dz * dz > radius * radius) continue;
         const world = { x: baseX + dx, y: baseY + y, z: baseZ + dz };
         if (isBlocked(world)) return; // Abort on obstruction
@@ -152,6 +164,78 @@ export function generateMegaTree(
         const perm = outer ? outerLog : innerLog;
         pending.push({ pos: world, perm });
         logPositions.push(world);
+      }
+    }
+  }
+
+  // --- Root flares
+  const rootDirs = [
+    { dx: 1, dz: 0, axis: "x" as const },
+    { dx: -1, dz: 0, axis: "x" as const },
+    { dx: 0, dz: 1, axis: "z" as const },
+    { dx: 0, dz: -1, axis: "z" as const },
+  ];
+  const rootCount = rng.int(3, 5);
+  for (let i = 0; i < rootCount; i++) {
+    const dir = rootDirs[rng.int(0, rootDirs.length - 1)];
+    const length = rng.int(2, 4);
+    for (let s = 1; s <= length; s++) {
+      const x = baseX + dir.dx * (trunkRadius + s);
+      const z = baseZ + dir.dz * (trunkRadius + s);
+      const y = baseY + (s > 2 ? -1 : 0);
+      const perm = BlockPermutation.resolve("minecraft:oak_log", { pillar_axis: dir.axis });
+      const pos = { x, y, z };
+      const block = dimension.getBlock(pos);
+      if (!block || PROTECTED.has(block.typeId)) continue;
+      pending.push({ pos, perm });
+      logPositions.push(pos);
+      if (s === 1) {
+        const sidePos =
+          dir.axis === "x"
+            ? { x, y, z: z + (rng.next() < 0.5 ? 1 : -1) }
+            : { x: x + (rng.next() < 0.5 ? 1 : -1), y, z };
+        const sideBlock = dimension.getBlock(sidePos);
+        if (sideBlock && !PROTECTED.has(sideBlock.typeId)) {
+          pending.push({ pos: sidePos, perm });
+          logPositions.push(sidePos);
+        }
+      }
+    }
+  }
+
+  const vinePermutation = (dx: number, dz: number): BlockPermutation => {
+    let bits = 0;
+    if (Math.abs(dx) > Math.abs(dz)) bits = dx > 0 ? 2 : 8;
+    else bits = dz > 0 ? 4 : 1;
+    return BlockPermutation.resolve("minecraft:vine", { vine_direction_bits: bits });
+  };
+
+  // --- Vines climbing the trunk
+  const vineStrips = rng.int(3, 6);
+  for (let i = 0; i < vineStrips; i++) {
+    const angle = rng.range(0, Math.PI * 2);
+    let dx = Math.round(Math.cos(angle) * (trunkRadius + 1));
+    let dz = Math.round(Math.sin(angle) * (trunkRadius + 1));
+    let x = baseX + dx;
+    let z = baseZ + dz;
+    let y = baseY + rng.int(0, Math.floor(trunkHeight * 0.3));
+    const length = rng.int(Math.floor(trunkHeight * 0.5), trunkHeight);
+    for (let s = 0; s < length && y <= trunkTopY; s++, y++) {
+      const perm = vinePermutation(dx, dz);
+      const pos = { x, y, z };
+      const block = dimension.getBlock(pos);
+      if (block && block.typeId === "minecraft:air") {
+        pending.push({ pos, perm });
+      }
+      if (rng.next() < 0.2) {
+        if (Math.abs(dx) > Math.abs(dz)) dz += rng.next() < 0.5 ? 1 : -1;
+        else dx += rng.next() < 0.5 ? 1 : -1;
+        if (dx * dx + dz * dz > (trunkRadius + 2) * (trunkRadius + 2)) {
+          if (Math.abs(dx) > Math.abs(dz)) dz += dz > 0 ? -1 : 1;
+          else dx += dx > 0 ? -1 : 1;
+        }
+        x = baseX + dx;
+        z = baseZ + dz;
       }
     }
   }
