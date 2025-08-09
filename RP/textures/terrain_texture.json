@@ -5,7 +5,7 @@
   "num_mip_levels": 4,
   "texture_data": {
     "canopy.elder_oak_sapling": {
-      "textures": ["textures/blocks/oak_sapling"]
+      "textures": ["textures/blocks/sapling_oak"]
     }
   }
 }
