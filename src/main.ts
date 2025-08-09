@@ -1,4 +1,10 @@
-﻿import { world } from "@minecraft/server";
-world.afterEvents.playerSpawn.subscribe(e => {
+import { world } from "@minecraft/server";
+import { registerMegaTreeDebug } from "./debug/megaTreeDebug";
+
+// Inform players that the add-on is active.
+world.afterEvents.playerSpawn.subscribe((e) => {
   e.player.sendMessage("§a[CanopyCraft] Add-on loaded!");
 });
+
+// Set up script event to spawn the megatree.
+registerMegaTreeDebug();
